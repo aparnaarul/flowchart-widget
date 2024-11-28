@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Stage, Layer, Line, Rect, Ellipse } from 'react-konva';
+import { Stage, Layer, Line, Rect, Ellipse, Text } from 'react-konva';
 import { snapToShape } from './RecognizeShapes';
 
 const DrawingCanvas = () => {
@@ -11,6 +11,65 @@ const DrawingCanvas = () => {
   const stageRef = useRef(null);
   const [shiftPressed, setShiftPressed] = useState(false);
 
+  const [textBoxes, setTextBoxes] = useState({}); // Maps shape index to text content
+  const [editingText, setEditingText] = useState(null); // Index of shape being edited
+
+  const handleDblClick = (e, index) => {
+    if (!lines[index]) return;
+
+    // Calculate center of the shape
+    const shape = lines[index];
+    let centerX, centerY;
+
+    if (shape.type === 'rectangle' || shape.type === 'ellipse') {
+      centerX = shape.x + shape.width / 2;
+      centerY = shape.y + shape.height / 2;
+    } else {
+      // For freehand/other shapes, calculate center from points
+      const points = shape.points;
+      const xPoints = points.filter((_, i) => i % 2 === 0);
+      const yPoints = points.filter((_, i) => i % 2 === 1);
+      centerX = (Math.min(...xPoints) + Math.max(...xPoints)) / 2;
+      centerY = (Math.min(...yPoints) + Math.max(...yPoints)) / 2;
+    }
+
+    // Create or focus existing text input
+    setEditingText(index);
+    setTextBoxes(prev => ({
+      ...prev,
+      [index]: prev[index] || ''
+    }));
+
+    // Create HTML input element
+    const textInput = document.createElement('input');
+    textInput.style.position = 'absolute';
+    textInput.style.left = `${centerX}px`;
+    textInput.style.top = `${centerY}px`;
+    textInput.style.transform = 'translate(-50%, -50%)';
+    textInput.value = textBoxes[index] || '';
+    textInput.style.zIndex = '1000';
+
+    const handleBlur = () => {
+      const newText = textInput.value;
+      setTextBoxes(prev => ({
+        ...prev,
+        [index]: newText
+      }));
+      setEditingText(null);
+      textInput.remove();
+    };
+
+    textInput.addEventListener('blur', handleBlur);
+    textInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        textInput.blur();
+      }
+    });
+
+    document.body.appendChild(textInput);
+    textInput.focus();
+  };
+  
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -153,8 +212,6 @@ const DrawingCanvas = () => {
     }
   };
   
-  
-  
 
   const handleDragStart = (index) => {
     setDraggingIndex(index);
@@ -282,6 +339,7 @@ const DrawingCanvas = () => {
                 onDragMove={(e) => handleDragMove(i, e)}
                 onDragEnd={handleDragEnd}
                 onClick={(e) => handleShapeClick(i, e)}
+                onDblClick={(e) => handleDblClick(e, i)}
               />
             );
           }
@@ -301,6 +359,7 @@ const DrawingCanvas = () => {
                 onDragMove={(e) => handleDragMove(i, e)}
                 onDragEnd={handleDragEnd}
                 onClick={(e) => handleShapeClick(i, e)}
+                onDblClick={(e) => handleDblClick(e, i)}
               />
             );
           }
@@ -321,6 +380,7 @@ const DrawingCanvas = () => {
                 onDragMove={(e) => handleDragMove(i, e)}
                 onDragEnd={handleDragEnd}
                 onClick={(e) => handleShapeClick(i, e)}
+                onDblClick={(e) => handleDblClick(e, i)}
               />
             );
           }
@@ -341,6 +401,7 @@ const DrawingCanvas = () => {
                 onDragMove={(e) => handleDragMove(i, e)}
                 onDragEnd={handleDragEnd}
                 onClick={(e) => handleShapeClick(i, e)}
+                onDblClick={(e) => handleDblClick(e, i)}
               />
             );
           }
@@ -356,10 +417,47 @@ const DrawingCanvas = () => {
               lineCap="round"
               lineJoin="round"
               onClick={(e) => handleShapeClick(i, e)}
+              onDblClick={(e) => handleDblClick(e, i)}
             />
           );
         })}
 
+        {/* Render text boxes */}
+        {Object.entries(textBoxes).map(([index, text]) => {
+          const shape = lines[index];
+          if (!shape) return null;
+
+          let x, y;
+          if (shape.type === 'rectangle' || shape.type === 'square') {
+            x = shape.x + (shape.width || shape.sideLength) / 2;
+            y = shape.y + (shape.height || shape.sideLength) / 2;
+          } else if (shape.type === 'oval' || shape.type === 'circle') {
+            x = shape.centerX;
+            y = shape.centerY;
+          } else {
+            // For freehand shapes
+            const points = shape.points;
+            const xPoints = points.filter((_, i) => i % 2 === 0);
+            const yPoints = points.filter((_, i) => i % 2 === 1);
+            x = (Math.min(...xPoints) + Math.max(...xPoints)) / 2;
+            y = (Math.min(...yPoints) + Math.max(...yPoints)) / 2;
+          }
+
+          return (
+            <Text
+              key={`text-${index}`}
+              x={x}
+              y={y}
+              text={text}
+              fontSize={16}
+              fill="black"
+              align="center"
+              verticalAlign="middle"
+              offsetX={text.length * 4}
+              offsetY={8}
+            />
+          );
+        })}
 
         </Layer>
       </Stage>
