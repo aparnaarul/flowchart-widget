@@ -97,6 +97,12 @@ const DrawingCanvas = () => {
     } else if (shape.type === 'oval') {
       shapeCenterX = shape.centerX;
       shapeCenterY = shape.centerY;
+    } else if (shape.type === 'circle') {
+      shapeCenterX = shape.centerX;
+      shapeCenterY = shape.centerY;
+    } else if (shape.type === 'square') {
+      shapeCenterX = shape.x + shape.sideLength / 2;
+      shapeCenterY = shape.y + shape.sideLength / 2;
     }
   
     // Get the click position relative to the stage
@@ -118,8 +124,12 @@ const DrawingCanvas = () => {
     if (shape.type === 'rectangle') {
       // For rectangles, use a dynamic threshold based on shape size
       threshold = Math.max(30, Math.min(50, Math.sqrt(shape.width * shape.height) / 4));
-    } else if (shape.type === 'oval'){ 
+    } else if (shape.type === 'oval') { 
       threshold = Math.max(30, Math.min(50, Math.sqrt((shape.width * shape.height) / 2) / 2));
+    } else if (shape.type === 'circle') { 
+      threshold = Math.max(30, Math.min(50, Math.sqrt((shape.radius*2 * shape.radius*2) / 2) / 2));
+    } else if (shape.type === 'square') {
+      threshold = Math.max(30, Math.min(50, Math.sqrt(shape.sideLength * shape.sideLength) / 4));
     }
   
     console.log(`Distance: ${distance}, Threshold: ${threshold}`);
@@ -188,13 +198,13 @@ const DrawingCanvas = () => {
           
           updatedLines[selectedShapeIndex] = {
             type: 'oval',
-            x, // Keep x and y to set bounds
-            y,
-            width,
-            height,
+            points: [x, y, x + width, y + height], // The bounding box for the oval
             centerX,
             centerY,
+            width,
+            height,
           };
+          
         } else if (currentShape.type === 'oval') {
           // Convert oval to rectangle
           const { centerX, centerY, width, height } = currentShape;
@@ -206,7 +216,29 @@ const DrawingCanvas = () => {
             width,
             height,
           };
+        } else if (currentShape.type === 'circle'){
+          const {centerX, centerY, radius} = currentShape;
+
+          updatedLines[selectedShapeIndex] = {
+            type: 'square',
+            x: centerX - radius,
+            y: centerY - radius,
+            sideLength: radius*2
+          };
+
+        } else if (currentShape.type === 'square'){
+          const {x, y, sideLength} = currentShape;
+
+          updatedLines[selectedShapeIndex] = {
+            type: 'circle',
+            points: [x, y, x+sideLength, y+sideLength],
+            centerX: x + sideLength/2,
+            centerY: y + sideLength/2,
+            radius: sideLength/2,
+          };
+
         }
+
         return updatedLines;
       });
     }
