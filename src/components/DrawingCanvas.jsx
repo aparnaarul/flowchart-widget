@@ -36,12 +36,10 @@ const DrawingCanvas = () => {
       setLines([...lines, { points: [pos.x, pos.y], type: 'freehand' }]);
     }
   };
-  
 
   const handleMouseMove = (e) => {
-    // Only run if drawing and not dragging a shape
     if (!isDrawing || draggingIndex !== null) return;
-  
+
     const pos = stageRef.current.getPointerPosition();
     if (pos) {
       const updatedLines = [...lines];
@@ -52,17 +50,15 @@ const DrawingCanvas = () => {
       }
     }
   };
-  
-  
 
   const handleMouseUp = () => {
     if (draggingIndex !== null) {
       setDraggingIndex(null); // Stop dragging
       return;
     }
-  
+
     setIsDrawing(false);
-  
+
     const lastLine = lines[lines.length - 1];
     if (lastLine) {
       const shapepoints = lastLine.points;
@@ -78,40 +74,83 @@ const DrawingCanvas = () => {
 
   const handleShapeClick = (index, e) => {
     if (draggingIndex !== null) return; // Ignore clicks during dragging
-    setSelectedShapeIndex(index);
-
-    // Store the button position for the shape if not already set
-    setButtonPositions((prevPositions) => {
-      if (!(index in prevPositions)) {
-        const shape = lines[index];
-        const defaultX =
-          shape.type === 'circle' ? shape.centerX + 20 : shape.x + 100;
-        const defaultY = shape.type === 'circle' ? shape.centerY - 10 : shape.y;
-
-        return {
-          ...prevPositions,
-          [index]: { x: defaultX, y: defaultY },
-        };
-      }
-      return prevPositions;
-    });
+  
+    const shape = lines[index];
+  
+    // Calculate the center of the shape
+    let shapeCenterX = 0;
+    let shapeCenterY = 0;
+    let shapeRadius = 0; // Radius for circles
+    if (shape.type === 'rectangle') {
+      shapeCenterX = shape.x + shape.width / 2;
+      shapeCenterY = shape.y + shape.height / 2;
+    } else if (shape.type === 'circle') {
+      shapeCenterX = shape.centerX;
+      shapeCenterY = shape.centerY;
+      shapeRadius = shape.radius;
+    }
+  
+    // Get the click position relative to the stage
+    const clickPosition = e.target.getStage().getPointerPosition();
+    if (!clickPosition) {
+      console.error('Click position is not available');
+      return;
+    }
+  
+    console.log(`Shape center: (${shapeCenterX}, ${shapeCenterY})`);
+    console.log(`Click position: (${clickPosition.x}, ${clickPosition.y})`);
+  
+    // Calculate the distance between the click position and the center of the shape
+    const distance = Math.sqrt(
+      Math.pow(clickPosition.x - shapeCenterX, 2) + Math.pow(clickPosition.y - shapeCenterY, 2)
+    );
+  
+    let threshold;
+    if (shape.type === 'circle') {
+      // For circles, the threshold should be the radius
+      threshold = shapeRadius * 0.7;
+    } else {
+      // For rectangles, use a dynamic threshold based on shape size
+      threshold = Math.max(30, Math.min(50, Math.sqrt(shape.width * shape.height) / 4));
+    }
+  
+    console.log(`Distance: ${distance}, Threshold: ${threshold}`);
+  
+    // If the click is near the center of the shape, show the buttons
+    if (distance < threshold) {
+      setSelectedShapeIndex(index);
+  
+      // Store the button position for the shape if not already set
+      setButtonPositions((prevPositions) => {
+        if (!(index in prevPositions)) {
+          const defaultX = shapeCenterX + 20;
+          const defaultY = shapeCenterY - 10;
+          return {
+            ...prevPositions,
+            [index]: { x: defaultX, y: defaultY },
+          };
+        }
+        return prevPositions;
+      });
+    }
   };
+  
+  
+  
 
   const handleDragStart = (index) => {
     setDraggingIndex(index);
     setIsDrawing(false); // Stop drawing when dragging starts
   };
-  
 
   const handleDragMove = (index, e) => {
-    // When dragging, prevent the mouse move logic for drawing
-    if (draggingIndex !== index) return; 
-  
+    if (draggingIndex !== index) return;
+
     const { x, y } = e.target.attrs;
     setLines((prevLines) => {
       const updatedLines = [...prevLines];
       const shape = updatedLines[index];
-  
+
       if (shape.type === 'circle') {
         shape.centerX = x;
         shape.centerY = y;
@@ -122,7 +161,6 @@ const DrawingCanvas = () => {
       return updatedLines;
     });
   };
-  
 
   const handleDragEnd = () => {
     setDraggingIndex(null);
@@ -163,6 +201,15 @@ const DrawingCanvas = () => {
     }
   };
 
+  const handleDeleteShape = () => {
+    if (selectedShapeIndex !== null) {
+      setLines((prevLines) => {
+        return prevLines.filter((_, index) => index !== selectedShapeIndex);
+      });
+      setSelectedShapeIndex(null); // Deselect after deleting
+    }
+  };
+
   return (
     <div style={{ position: 'relative', margin: '20px', width: '800px', height: '600px' }}>
       <Stage
@@ -189,7 +236,7 @@ const DrawingCanvas = () => {
                   onDragStart={() => handleDragStart(i)}
                   onDragMove={(e) => handleDragMove(i, e)}
                   onDragEnd={handleDragEnd}
-                  onClick={(e) => handleShapeClick(i, e)}
+                  onClick={(e) => handleShapeClick(i, e)} // Pass event here
                 />
               );
             }
@@ -207,7 +254,7 @@ const DrawingCanvas = () => {
                   onDragStart={() => handleDragStart(i)}
                   onDragMove={(e) => handleDragMove(i, e)}
                   onDragEnd={handleDragEnd}
-                  onClick={(e) => handleShapeClick(i, e)}
+                  onClick={(e) => handleShapeClick(i, e)} // Pass event here
                 />
               );
             }
@@ -228,16 +275,14 @@ const DrawingCanvas = () => {
         </Layer>
       </Stage>
       {selectedShapeIndex !== null && buttonPositions[selectedShapeIndex] && (
-        <button
-          style={{
-            position: 'absolute',
-            top: buttonPositions[selectedShapeIndex].y,
-            left: buttonPositions[selectedShapeIndex].x,
-          }}
-          onClick={handleToggleShape}
-        >
-          Toggle Shape
-        </button>
+        <div style={{ position: 'absolute', top: buttonPositions[selectedShapeIndex].y, left: buttonPositions[selectedShapeIndex].x }}>
+          <button onClick={handleToggleShape} style={{ display: 'block', marginBottom: '5px' }}>
+            Toggle Shape
+          </button>
+          <button onClick={handleDeleteShape}>
+            Delete Shape
+          </button>
+        </div>
       )}
     </div>
   );
