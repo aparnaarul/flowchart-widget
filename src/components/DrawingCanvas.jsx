@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Stage, Layer, Line, Rect, Circle } from 'react-konva';
+import { Stage, Layer, Line, Rect, Ellipse } from 'react-konva';
 import { snapToShape } from './RecognizeShapes';
 
 const DrawingCanvas = () => {
@@ -53,24 +53,24 @@ const DrawingCanvas = () => {
 
   const handleMouseUp = () => {
     if (draggingIndex !== null) {
-      setDraggingIndex(null); // Stop dragging
+      setDraggingIndex(null);
       return;
     }
-
+  
     setIsDrawing(false);
-
+  
+    if (lines.length === 0) return;
+  
     const lastLine = lines[lines.length - 1];
-    if (lastLine) {
-      const shapepoints = lastLine.points;
-      if (shapepoints.length > 0) {
-        const snappedShape = snapToShape(shapepoints);
-        if (snappedShape) {
-          const updatedLines = lines.slice(0, -1).concat(snappedShape);
-          setLines(updatedLines);
-        }
+    if (lastLine && lastLine.points.length > 0) {
+      const snappedShape = snapToShape(lastLine.points);
+      if (snappedShape) {
+        setLines([...lines.slice(0, -1), snappedShape]);
       }
     }
   };
+  
+  
 
   const handleShapeClick = (index, e) => {
     if (draggingIndex !== null) return; // Ignore clicks during dragging
@@ -80,14 +80,12 @@ const DrawingCanvas = () => {
     // Calculate the center of the shape
     let shapeCenterX = 0;
     let shapeCenterY = 0;
-    let shapeRadius = 0; // Radius for circles
     if (shape.type === 'rectangle') {
       shapeCenterX = shape.x + shape.width / 2;
       shapeCenterY = shape.y + shape.height / 2;
-    } else if (shape.type === 'circle') {
+    } else if (shape.type === 'oval') {
       shapeCenterX = shape.centerX;
       shapeCenterY = shape.centerY;
-      shapeRadius = shape.radius;
     }
   
     // Get the click position relative to the stage
@@ -106,12 +104,11 @@ const DrawingCanvas = () => {
     );
   
     let threshold;
-    if (shape.type === 'circle') {
-      // For circles, the threshold should be the radius
-      threshold = shapeRadius * 0.7;
-    } else {
+    if (shape.type === 'rectangle') {
       // For rectangles, use a dynamic threshold based on shape size
       threshold = Math.max(30, Math.min(50, Math.sqrt(shape.width * shape.height) / 4));
+    } else if (shape.type === 'oval'){ 
+      threshold = Math.max(30, Math.min(50, Math.sqrt((shape.width * shape.height) / 2) / 2));
     }
   
     console.log(`Distance: ${distance}, Threshold: ${threshold}`);
@@ -151,7 +148,7 @@ const DrawingCanvas = () => {
       const updatedLines = [...prevLines];
       const shape = updatedLines[index];
 
-      if (shape.type === 'circle') {
+      if (shape.type === 'oval') {
         shape.centerX = x;
         shape.centerY = y;
       } else if (shape.type === 'rectangle') {
@@ -171,27 +168,30 @@ const DrawingCanvas = () => {
       setLines((prevLines) => {
         const updatedLines = [...prevLines];
         const currentShape = updatedLines[selectedShapeIndex];
+  
         if (currentShape.type === 'rectangle') {
+          // Convert rectangle to oval
           const { x, y, width, height } = currentShape;
           const centerX = x + width / 2;
           const centerY = y + height / 2;
-          const radius = Math.min(width, height) / 2;
+          
           updatedLines[selectedShapeIndex] = {
-            type: 'circle',
+            type: 'oval',
+            x, // Keep x and y to set bounds
+            y,
+            width,
+            height,
             centerX,
             centerY,
-            radius,
           };
-        } else if (currentShape.type === 'circle') {
-          const { centerX, centerY, radius } = currentShape;
-          const x = centerX - radius;
-          const y = centerY - radius;
-          const width = radius * 2;
-          const height = radius * 2;
+        } else if (currentShape.type === 'oval') {
+          // Convert oval to rectangle
+          const { centerX, centerY, width, height } = currentShape;
+  
           updatedLines[selectedShapeIndex] = {
             type: 'rectangle',
-            x,
-            y,
+            x: centerX - width / 2, // Calculate x position
+            y: centerY - height / 2, // Calculate y position
             width,
             height,
           };
@@ -200,6 +200,8 @@ const DrawingCanvas = () => {
       });
     }
   };
+    
+  
 
   const handleDeleteShape = () => {
     if (selectedShapeIndex !== null) {
@@ -221,57 +223,60 @@ const DrawingCanvas = () => {
         onMouseUp={handleMouseUp}
       >
         <Layer>
-          {lines.map((line, i) => {
-            if (line.type === 'rectangle') {
-              return (
-                <Rect
-                  key={i}
-                  x={line.x}
-                  y={line.y}
-                  width={line.width}
-                  height={line.height}
-                  stroke="black"
-                  strokeWidth={2}
-                  draggable
-                  onDragStart={() => handleDragStart(i)}
-                  onDragMove={(e) => handleDragMove(i, e)}
-                  onDragEnd={handleDragEnd}
-                  onClick={(e) => handleShapeClick(i, e)} // Pass event here
-                />
-              );
-            }
-
-            if (line.type === 'circle') {
-              return (
-                <Circle
-                  key={i}
-                  x={line.centerX}
-                  y={line.centerY}
-                  radius={line.radius}
-                  stroke="black"
-                  strokeWidth={2}
-                  draggable
-                  onDragStart={() => handleDragStart(i)}
-                  onDragMove={(e) => handleDragMove(i, e)}
-                  onDragEnd={handleDragEnd}
-                  onClick={(e) => handleShapeClick(i, e)} // Pass event here
-                />
-              );
-            }
-
+        {lines.map((line, i) => {
+          if (line.type === 'rectangle') {
             return (
-              <Line
+              <Rect
                 key={i}
-                points={line.points}
+                x={line.x}
+                y={line.y}
+                width={line.width}
+                height={line.height}
                 stroke="black"
                 strokeWidth={2}
-                tension={0.5}
-                lineCap="round"
-                lineJoin="round"
+                draggable
+                onDragStart={() => handleDragStart(i)}
+                onDragMove={(e) => handleDragMove(i, e)}
+                onDragEnd={handleDragEnd}
                 onClick={(e) => handleShapeClick(i, e)}
               />
             );
-          })}
+          }
+
+          if (line.type === 'oval') {
+            return (
+              <Ellipse
+                key={i}
+                x={line.centerX}
+                y={line.centerY}
+                radiusX={line.width / 2}
+                radiusY={line.height / 2}
+                stroke="black"
+                strokeWidth={2}
+                draggable
+                onDragStart={() => handleDragStart(i)}
+                onDragMove={(e) => handleDragMove(i, e)}
+                onDragEnd={handleDragEnd}
+                onClick={(e) => handleShapeClick(i, e)}
+              />
+            );
+          }
+          
+
+          return (
+            <Line
+              key={i}
+              points={line.points}
+              stroke="black"
+              strokeWidth={2}
+              tension={0.5}
+              lineCap="round"
+              lineJoin="round"
+              onClick={(e) => handleShapeClick(i, e)}
+            />
+          );
+        })}
+
         </Layer>
       </Stage>
       {selectedShapeIndex !== null && buttonPositions[selectedShapeIndex] && (
