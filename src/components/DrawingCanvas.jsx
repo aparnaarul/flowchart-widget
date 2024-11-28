@@ -9,6 +9,7 @@ const DrawingCanvas = () => {
   const [buttonPositions, setButtonPositions] = useState({}); // Tracks button positions for shapes
   const [draggingIndex, setDraggingIndex] = useState(null); // Tracks which shape is being dragged
   const stageRef = useRef(null);
+  const [shiftPressed, setShiftPressed] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -17,13 +18,23 @@ const DrawingCanvas = () => {
         if (lines.length > 0) {
           setLines((prevLines) => prevLines.slice(0, -1));
         }
+      } else if (e.key === 'Shift') {
+        setShiftPressed(true);
+      }
+    };
+
+    const handleKeyUp = (e) => {
+      if (e.key === 'Shift') {
+        setShiftPressed(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, [lines]);
 
@@ -63,7 +74,7 @@ const DrawingCanvas = () => {
   
     const lastLine = lines[lines.length - 1];
     if (lastLine && lastLine.points.length > 0) {
-      const snappedShape = snapToShape(lastLine.points);
+      const snappedShape = snapToShape(lastLine.points, shiftPressed);
       if (snappedShape) {
         setLines([...lines.slice(0, -1), snappedShape]);
       }
@@ -261,8 +272,48 @@ const DrawingCanvas = () => {
               />
             );
           }
-          
 
+          // Check if the shape is a circle (width and height are equal)
+          if (line.type === 'circle') {
+            return (
+              <Ellipse
+                key={i}
+                x={line.centerX}
+                y={line.centerY}
+                radiusX={line.radius}
+                radiusY={line.radius}
+                stroke="black"
+                strokeWidth={2}
+                draggable
+                onDragStart={() => handleDragStart(i)}
+                onDragMove={(e) => handleDragMove(i, e)}
+                onDragEnd={handleDragEnd}
+                onClick={(e) => handleShapeClick(i, e)}
+              />
+            );
+          }
+
+          // Check if the shape is a square (width and height are equal)
+          if (line.type === 'square') {
+            return (
+              <Rect
+                key={i}
+                x={line.x}
+                y={line.y}
+                width={line.sideLength}
+                height={line.sideLength} // Ensure width and height are equal for a square
+                stroke="black"
+                strokeWidth={2}
+                draggable
+                onDragStart={() => handleDragStart(i)}
+                onDragMove={(e) => handleDragMove(i, e)}
+                onDragEnd={handleDragEnd}
+                onClick={(e) => handleShapeClick(i, e)}
+              />
+            );
+          }
+
+          // Default rendering for freehand lines or other types
           return (
             <Line
               key={i}
@@ -276,6 +327,7 @@ const DrawingCanvas = () => {
             />
           );
         })}
+
 
         </Layer>
       </Stage>

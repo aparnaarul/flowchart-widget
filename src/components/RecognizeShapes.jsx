@@ -1,4 +1,4 @@
-export const snapToShape = (points) => {
+export const snapToShape = (points, shiftKey = false) => {
   console.log('Received points for snapping:', points);
 
   if (points.length < 4) {
@@ -29,12 +29,42 @@ export const snapToShape = (points) => {
 
   // Tolerance for aspect ratio to decide if the shape is close to oval
   const aspectRatioTolerance = 0.25; // Adjust as needed (e.g., 10% difference)
+  const aspectRatioToleranceCir = 0.15; // Adjust as needed (e.g., 10% difference)
+
   const aspectRatio = Math.min(width, height) / Math.max(width, height);
 
+  if (shiftKey) {
+    if (aspectRatio > 1 - aspectRatioToleranceCir && aspectRatio < 1 + aspectRatioToleranceCir) {
+      // The shape is close to a square
+      const sideLength = Math.max(width, height); // Use the greater dimension as the side length
+      const centerX = (xMin + xMax) / 2;
+      const centerY = (yMin + yMax) / 2;
+      return {
+        type: 'square',
+        x: centerX - sideLength / 2,
+        y: centerY - sideLength / 2,
+        sideLength,
+      };
+    } else {
+      // Adjust to make a circle
+      const sideLength = Math.max(width, height); // Ensure side length is uniform
+      const centerX = (xMin + xMax) / 2;
+      const centerY = (yMin + yMax) / 2;
+      return {
+        type: 'circle',
+        points: [xMin, yMin, xMax, yMax], // Represent the bounding box for the circle
+        centerX,
+        centerY,
+        radius: sideLength / 2,
+      };
+    }
+  }
+  
+
+  // If not the shift key, return the oval or rectangle logic
   if (aspectRatio > 1 - aspectRatioTolerance && aspectRatio < 1 + aspectRatioTolerance) {
     const centerX = (xMin + xMax) / 2;
     const centerY = (yMin + yMax) / 2;
-    // Oval defined by its center, width, and height
     return {
       type: 'oval',
       points: [xMin, yMin, xMax, yMax], // Represent the bounding box for the oval
