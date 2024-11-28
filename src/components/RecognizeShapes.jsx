@@ -28,7 +28,7 @@ export const snapToShape = (points) => {
     }
   
     // Tolerance for aspect ratio to decide if the shape is close to circular
-    const aspectRatioTolerance = 0.2; // Adjust as needed (e.g., 10% difference)
+    const aspectRatioTolerance = 0.25; // Adjust as needed (e.g., 10% difference)
     const aspectRatio = Math.min(width, height) / Math.max(width, height);
   
     if (aspectRatio > 1 - aspectRatioTolerance && aspectRatio < 1 + aspectRatioTolerance) {
